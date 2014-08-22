@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>Elm-Redex</title>
+<style>
+body {
+font-family:sans-serif;
+}
+</style>
+<meta charset="UTF-8">
+<script type="text/javascript" src="elm-runtime.js"></script>
+<script type="text/javascript" src="build/Main.js"></script>
+<script type="text/javascript" src="parsimmon.js"></script>
+<script type="text/javascript">
+var regex = Parsimmon.regex;
+var string = Parsimmon.string;
+var optWhitespace = Parsimmon.optWhitespace;
+var lazy = Parsimmon.lazy;
+
+
+function unflatten(as) {
+if (as.length == 1) { return as[0]; }
+var acc = as.pop();
+var first = unflatten(as);
+return ["APP",first,acc];
+}
+
+function lambdafunc(id,x) {
+  if (id.length == 0) { return x; }
+  var acc = id.shift();
+  var rest = lambdafunc(id,x);
+  return ["LAMBDA",acc,rest];
+}
+
+function lexeme(p) { return p.skip(optWhitespace); }
+
+var lparen = lexeme(string('('));
+var rparen = lexeme(string(')'));
+var lambda = lexeme(string("\\"));
+var dot = lexeme(string('.'));
+var id = lexeme(regex(/[A-Za-z_']\w*/i));
+
+var expr = lazy('a lambda term', function() { return lambdaE.or(termlist) });
+
+var lambdaE = lambda.then(id.atLeast(1)).skip(dot).chain(function (id) {
+  return expr.map(function (x) { return lambdafunc(id,x); })});
+var term = id.or(lparen.then(expr).skip(rparen));
+
+var termlist = term.atLeast(1).map(unflatten);
+
+
+toplevel = optWhitespace.then(expr);
+</script>
+
+</head>
+
+<body>
+<div style="float:right"> <center ><img src="logo.png"/>  <br/> <span
+  style="font-size:8pt"> Made in <a href="http://elm-lang.org">Elm</a></span></center></div>
+<h1>Elm-Redex</h1>
+<h5>The interactive lambda calculus interpreter</h5>
+<form onSubmit="return go()">
+<input id="info" value="(\n x. f (n x x)) (\f.\x. x)"></input>
+<input type="submit" value="Use"></input>
+</form>
+<div id=elm></div>
+<script type="text/javascript">
+var div = document.getElementById('elm');
+
+// embed our Elm program in that <div>
+var it = Elm.embed(Elm.Main, div, {termsIn : ["LAMBDA","x","x"] });
+function go () {
+  var x = toplevel.parse(document.getElementById("info").value);
+  if (x.status) {
+    it.ports.termsIn.send(x.value);
+  } else {
+    alert("Parse error!");
+  }
+  return false;
+}
+</script>
+<hr>
+<address></address>
+<div style="float:right"> <a href="http://liamoc.net">Liam O'Connor</a> </div>
+<!-- hhmts start -->Last modified: Fri Aug 22 10:32:22 EST 2014 <!-- hhmts end -->
+</body> </html>
